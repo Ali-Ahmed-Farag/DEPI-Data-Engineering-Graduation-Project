@@ -1,3 +1,31 @@
+x-airflow-common: &airflow-common
+  image: eco-airflow:local
+  build:
+    context: ./docker/airflow
+    args:
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-2.11.0}
+  restart: unless-stopped
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AIRFLOW_DB:-airflow}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Africa/Cairo
+    AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Africa/Cairo
+    # Connection id "eco_db" for DAG tasks (etl_user is created by sql/00_databases_roles.sql)
+    AIRFLOW_CONN_ECO_DB: postgresql://etl_user:${ETL_USER_PASSWORD}@postgres:5432/${POSTGRES_DB:-eco}
+    PYTHONPATH: /opt/airflow            # lets DAGs do: from src.connectors import ...
+    TZ: Africa/Cairo
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:16
@@ -6,9 +34,9 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-eco}      # first database (eco)
-      AIRFLOW_DB: ${AIRFLOW_DB:-airflow}    # second database, created by the init script
-	ETL_USER_PASSWORD: ${ETL_USER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-eco}
+      AIRFLOW_DB: ${AIRFLOW_DB:-airflow}
+      ETL_USER_PASSWORD: ${ETL_USER_PASSWORD}
       READER_PASSWORD: ${READER_PASSWORD}
       TZ: Africa/Cairo
     ports:
@@ -23,5 +51,53 @@ services:
       timeout: 5s
       retries: 10
 
+  airflow-init:
+    <<: *airflow-common
+    container_name: eco_airflow_init
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -e
+        airflow db migrate
+        airflow users create \
+          --username "$${AIRFLOW_ADMIN_USER}" --password "$${AIRFLOW_ADMIN_PASSWORD}" \
+          --firstname Admin --lastname User --role Admin --email admin@example.com \
+          || echo "admin user already exists, skipping"
+    environment:
+      <<: *airflow-env
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: eco_airflow_web
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: eco_airflow_scheduler
+    command: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:
+  airflow-logs:
