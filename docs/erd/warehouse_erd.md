@@ -1,5 +1,7 @@
 \# Egypt Economic Intelligence Platform
 
+
+
 \## Data Warehouse ERD
 
 
@@ -36,11 +38,19 @@ erDiagram
 
 &#x20;       date full\_date
 
-&#x20;       int year
+&#x20;       smallint day\_of\_month
 
-&#x20;       int month
+&#x20;       smallint day\_of\_week
 
-&#x20;       int week
+&#x20;       smallint week\_of\_year
+
+&#x20;       smallint month
+
+&#x20;       string month\_name
+
+&#x20;       smallint quarter
+
+&#x20;       smallint year
 
 &#x20;   }
 
@@ -88,7 +98,7 @@ erDiagram
 
 &#x20;       string kind
 
-&#x20;       int karat
+&#x20;       smallint karat
 
 &#x20;   }
 
@@ -138,6 +148,8 @@ erDiagram
 
 &#x20;       decimal rate
 
+&#x20;       timestamp loaded\_at
+
 &#x20;   }
 
 
@@ -150,11 +162,13 @@ erDiagram
 
 &#x20;       string country PK
 
-&#x20;       int period\_year PK
+&#x20;       smallint period\_year PK
 
-&#x20;       int period\_month PK
+&#x20;       smallint period\_month PK
 
 &#x20;       decimal value
+
+&#x20;       timestamp loaded\_at
 
 &#x20;   }
 
