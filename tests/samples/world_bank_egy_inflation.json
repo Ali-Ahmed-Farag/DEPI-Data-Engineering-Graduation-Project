@@ -1,0 +1,17 @@
+[
+  {"page": 1, "pages": 1, "per_page": 500, "total": 4, "sourceid": "2", "lastupdated": "2025-01-01"},
+  [
+    {"indicator": {"id": "FP.CPI.TOTL.ZG", "value": "Inflation, consumer prices (annual %)"},
+     "country": {"id": "EG", "value": "Egypt, Arab Rep."}, "countryiso3code": "EGY",
+     "date": "2023", "value": 33.9, "unit": "", "obs_status": "", "decimal": 1},
+    {"indicator": {"id": "FP.CPI.TOTL.ZG", "value": "Inflation, consumer prices (annual %)"},
+     "country": {"id": "EG", "value": "Egypt, Arab Rep."}, "countryiso3code": "EGY",
+     "date": "2022", "value": 13.9, "unit": "", "obs_status": "", "decimal": 1},
+    {"indicator": {"id": "FP.CPI.TOTL.ZG", "value": "Inflation, consumer prices (annual %)"},
+     "country": {"id": "EG", "value": "Egypt, Arab Rep."}, "countryiso3code": "EGY",
+     "date": "2021", "value": 4.5, "unit": "", "obs_status": "", "decimal": 1},
+    {"indicator": {"id": "FP.CPI.TOTL.ZG", "value": "Inflation, consumer prices (annual %)"},
+     "country": {"id": "EG", "value": "Egypt, Arab Rep."}, "countryiso3code": "EGY",
+     "date": "2020", "value": null, "unit": "", "obs_status": "", "decimal": 1}
+  ]
+]
