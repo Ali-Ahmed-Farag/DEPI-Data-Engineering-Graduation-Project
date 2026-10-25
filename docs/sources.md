@@ -71,7 +71,7 @@ This table fixes only which products are tracked. Index weights are decided sepa
 ### Known limits
 
 1. Branch not selected: the site header shows "Choose Branch" and we do not select one, so prices are the default list. The site's terms say the range and prices may differ by delivery location.
-2. Discounts: three basket products (6565, 4408, 3513) had a struck-through old price on the verification day. The current price is the price that is stored; the old price is kept in staging only.
+2. Discounts: three basket products (6565, 4408, 3513) had a struck-through old price on the verification day. The current price is the price that is stored. The old price is not stored for now, because `staging.prices_clean` has no column for it; adding one is a shared-schema change that needs the team's agreement (R3).
 3. No cooking oil: no bottled edible oil was found in the English catalogue (searches for oil, sunflower and corn, and no oil category in the category tree). The Arabic catalogue was not searched. Ghee is tracked instead. IDSC publishes daily prices of basic commodities including sunflower oil, which could serve as a reference outside the basket (to be decided by the team).
 4. Names are not stable across page types (category card vs product page), so identity relies on `product_id` only.
 5. Category names on the site are unreliable (for example the "Balady Ghee" category contains cheese-labelled items and "Fresh Milk" contains cream), so our own category labels are used.
