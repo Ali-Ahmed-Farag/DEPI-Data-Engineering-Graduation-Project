@@ -1,5 +1,5 @@
 -- test_scd2.sql  (R3, task 2.11 / 4.7)
--- Tests the SCD2 load in sql/load/load_dim_product.sql.
+-- Tests the SCD2 load in sql/load/load_prices.sql.
 -- NOT run at container start (it lives in sql/tests/).
 --
 -- Run inside the compose postgres container:
@@ -20,7 +20,7 @@ DELETE FROM staging.products WHERE product_id LIKE 'TEST%';
 INSERT INTO staging.products (product_id, name, category, unit) VALUES
     ('TEST001', 'Gold Ring',     'Jewelry', 'gram'),
     ('TEST002', 'Gold Necklace', 'Jewelry', 'gram');
-\i /sql/load/load_dim_product.sql
+\i /sql/load/load_prices.sql
 
 DO $$
 BEGIN
@@ -34,7 +34,7 @@ END $$;
 \echo 'check 1 OK: first load creates 2 current versions'
 
 -- 2) idempotency: same staging, load again -> nothing changes
-\i /sql/load/load_dim_product.sql
+\i /sql/load/load_prices.sql
 DO $$
 BEGIN
     ASSERT (SELECT count(*) FROM dwh.dim_product
@@ -45,7 +45,7 @@ END $$;
 
 -- 3) category change -> old version closed, new current version added
 UPDATE staging.products SET category = 'Accessories' WHERE product_id = 'TEST001';
-\i /sql/load/load_dim_product.sql
+\i /sql/load/load_prices.sql
 
 DO $$
 BEGIN
