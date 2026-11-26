@@ -85,3 +85,4 @@ UNION ALL SELECT 'fact_price',     count(*) FROM dwh.fact_price
 UNION ALL SELECT 'fact_gold_fx',   count(*) FROM dwh.fact_gold_fx
 UNION ALL SELECT 'fact_indicator', count(*) FROM dwh.fact_indicator;
 \echo '== demo data: DONE =='
+\i /sql/tests/demo_basket_weights.sql

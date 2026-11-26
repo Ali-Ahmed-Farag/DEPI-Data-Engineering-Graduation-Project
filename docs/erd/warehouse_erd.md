@@ -2,7 +2,7 @@
 
 Star schema of the Egypt Economic Intelligence Platform. Dimensions are loaded first, then facts.
 `dim_product` is SCD Type 2: every change of name/category/unit creates a new row (`product_key`) while `product_id` stays the same, and only one row per product has `is_current = true`.
-Names follow the DDL in `sql/40_dwh.sql` exactly.
+Names follow the DDL in `sql/40_dwh.sql` and `sql/45_basket_weights.sql` exactly.
 
 ```mermaid
 erDiagram
@@ -87,6 +87,11 @@ erDiagram
         decimal value
         timestamp loaded_at
     }
+
+    BASKET_WEIGHTS {
+        string product_id PK
+        decimal weight
+    }
 ```
 
 ## Notes
@@ -95,3 +100,4 @@ erDiagram
 - `fact_indicator.period_month = 0` means annual data; `value` can be NULL (World Bank has gaps).
 - `dim_currency` is unique on `(code, kind, COALESCE(karat, 0))`.
 - `dim_product` has a unique partial index on `product_id WHERE is_current`.
+- `basket_weights` is the basket of the price index (read by `serving.v_basket_index`). Its `product_id` matches `dim_product.product_id` by value only, with no foreign key, because `product_id` is not unique in `dim_product` (SCD2 keeps one row per version). The view divides the weights by their total. It is a new table, not in checklist section 6.
