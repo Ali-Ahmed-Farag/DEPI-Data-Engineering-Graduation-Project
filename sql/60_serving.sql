@@ -45,27 +45,86 @@ JOIN dwh.dim_product p ON p.product_key = f.product_key
 JOIN dwh.dim_source  s ON s.source_key  = f.source_key
 JOIN dwh.dim_date    d ON d.date_key    = f.date_key;
 
--- GET /index : basket price index (base = 100 at each product's first day).
--- INTERIM version: equal weights. Final weights + fill-forward come in
--- tasks 6.1 / 6.2.
+-- GET /index : basket price index (checklist section 11)
+--   Index_t = 100 * SUM( w_i * p_i,t / p_i,0 )      SUM(w_i) = 1
+-- * basket and weights: dwh.basket_weights (weights are divided by their total)
+-- * p_i,t: average price of the product over all sources on that day
+-- * fill-forward: a product without a price on a day takes its last price from
+--   the previous 3 days (change the 3 below to allow more or fewer days)
+-- * base date: the first day on which EVERY basket product has a price
+-- * a day on which some product is still missing after the fill-forward gets
+--   index_value NULL, so the gap stays visible and nothing is invented
+-- Columns: index_date, index_value, products_count are the contract with R5;
+-- the others were added at the end.
 CREATE OR REPLACE VIEW serving.v_basket_index AS
-WITH prices AS (
-    SELECT p.product_id, d.full_date, f.price
+WITH w AS (
+    SELECT product_id,
+           weight / SUM(weight) OVER () AS weight
+    FROM dwh.basket_weights
+),
+basket_size AS (
+    SELECT COUNT(*) AS n FROM w
+),
+observed AS (                                    -- real prices, one per product per day
+    SELECT p.product_id, d.full_date, AVG(f.price) AS price
     FROM dwh.fact_price f
     JOIN dwh.dim_product p ON p.product_key = f.product_key
     JOIN dwh.dim_date    d ON d.date_key    = f.date_key
+    JOIN w                 ON w.product_id  = p.product_id
+    GROUP BY p.product_id, d.full_date
+),
+calendar AS (                                    -- every day between the first and last price
+    SELECT d.full_date
+    FROM dwh.dim_date d
+    WHERE d.full_date BETWEEN (SELECT MIN(full_date) FROM observed)
+                          AND (SELECT MAX(full_date) FROM observed)
+),
+grid AS (                                        -- every basket product x every day
+    SELECT w.product_id, w.weight, c.full_date
+    FROM w
+    CROSS JOIN calendar c
+),
+marked AS (                                      -- date of the last real price up to each day
+    SELECT g.product_id, g.weight, g.full_date,
+           MAX(o.full_date) OVER (PARTITION BY g.product_id
+                                  ORDER BY g.full_date) AS last_observed
+    FROM grid g
+    LEFT JOIN observed o ON o.product_id = g.product_id
+                        AND o.full_date  = g.full_date
+),
+filled AS (                                      -- price of each basket product on each day
+    SELECT m.product_id, m.weight, m.full_date,
+           o.price, o.full_date AS observed_on
+    FROM marked m
+    LEFT JOIN observed o ON o.product_id = m.product_id
+                        AND o.full_date  = m.last_observed
+                        AND m.last_observed >= m.full_date - 3   -- max days of fill-forward
 ),
 base AS (
-    SELECT DISTINCT ON (product_id) product_id, price AS base_price
-    FROM prices
-    ORDER BY product_id, full_date
+    SELECT MIN(full_date) AS base_date
+    FROM (SELECT full_date
+          FROM filled
+          GROUP BY full_date
+          HAVING COUNT(price) = (SELECT n FROM basket_size)) complete_days
+),
+base_prices AS (
+    SELECT f.product_id, f.price AS base_price
+    FROM filled f
+    JOIN base b ON f.full_date = b.base_date
 )
-SELECT pr.full_date AS index_date,
-       ROUND(100 * AVG(pr.price / b.base_price), 2) AS index_value,
-       COUNT(*)                                     AS products_count
-FROM prices pr
-JOIN base b ON b.product_id = pr.product_id
-GROUP BY pr.full_date;
+SELECT f.full_date AS index_date,
+       CASE WHEN COUNT(f.price) = (SELECT n FROM basket_size)
+            THEN ROUND(100 * SUM(f.weight * f.price / bp.base_price), 2)
+       END                                            AS index_value,
+       COUNT(f.price)                                 AS products_count,
+       (SELECT n FROM basket_size) - COUNT(f.price)   AS products_missing,
+       COUNT(*) FILTER (WHERE f.observed_on < f.full_date) AS products_filled,
+       MAX(b.base_date)                               AS base_date
+FROM filled f
+CROSS JOIN base b
+JOIN base_prices bp ON bp.product_id = f.product_id
+WHERE f.full_date >= b.base_date
+GROUP BY f.full_date;
 
 -- GET /pipeline/status : last run of every source
 CREATE OR REPLACE VIEW serving.v_pipeline_status AS
